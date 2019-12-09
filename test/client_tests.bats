@@ -20,7 +20,7 @@ setup(){
        javac segmentedfilesystem/*.java
 
        # Run the client
-       java segmentedfilesystem.Main csci-4409.morris.umn.edu
+       java segmentedfilesystem.fileClient csci-4409.morris.umn.edu
 
        cd ..
     fi

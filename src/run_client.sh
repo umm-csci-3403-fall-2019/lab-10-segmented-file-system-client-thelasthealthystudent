@@ -7,5 +7,5 @@ rm -f segmentedfilesystem/*.class
 javac segmentedfilesystem/*.java
 
 # Run the client
-java segmentedfilesystem.Main
+java segmentedfilesystem.fileClient
 
