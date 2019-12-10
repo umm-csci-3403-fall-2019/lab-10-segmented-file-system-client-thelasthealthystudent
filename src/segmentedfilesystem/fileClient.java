@@ -81,7 +81,7 @@ public class fileClient {
                 //if even, then its a header
                 data = Arrays.copyOfRange(rawData, 3,rawData.length);
                 if (Arrays.equals(fileID, fileID1)) {
-                    fileName1 = Arrays.toString(data);
+                    fileName1 = new String(data);
                     System.out.println(fileName1);
                 }
                 if (Arrays.equals(fileID, fileID2)) {
@@ -115,7 +115,7 @@ public class fileClient {
                 } else if (Arrays.equals(fileID, fileID2)) {
                     fileArray2.add(data);
                 } else if (Arrays.equals(fileID, fileID3)) {
-                    fileArray1.add(data);
+                    fileArray3.add(data);
                     //OStream3.write(data);
                 }
             }
