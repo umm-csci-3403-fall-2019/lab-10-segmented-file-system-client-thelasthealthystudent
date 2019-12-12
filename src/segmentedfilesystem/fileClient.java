@@ -9,6 +9,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.lang.Math.*;
+import java.lang.reflect.Array;
 
 public class fileClient {
 
@@ -34,96 +35,86 @@ public class fileClient {
         socket.receive(packet);
         String received = new String(packet.getData(), 0, packet.getLength());
         System.out.println("Pointless String should print: " + received);
-        System.out.println();
         int i = 1;
-        boolean file1Done = false;
-        boolean file2Done = false;
-        boolean file3Done = false;
-        byte[] empty = new byte[2];
-        byte[] fileID1 = empty;
-        byte[] fileID2 = empty;
-        byte[] fileID3 = empty;
-        String fileName1 = "";
-        String fileName2 = "";
-        String fileName3 = "";
-        int numPackets1 = 0;
-        int numPackets2 = 0;
-        int numPackets3 = 0;
-        ArrayList<byte[]> fileArray1 = new ArrayList<byte[]>();
-        ArrayList<byte[]> fileArray2 = new ArrayList<byte[]>();
-        ArrayList<byte[]> fileArray3 = new ArrayList<byte[]>();
-
-
-        while (true){
+        
+        file file1 = new file();
+        file file2 = new file();
+        file file3 = new file();
+        
+        while (!(file1.fileDone && file2.fileDone && file3.fileDone)){
             socket.receive(packet);
             byte[] rawData = packet.getData();
             byte[] status = Arrays.copyOfRange(rawData, 0, 1);
             byte[] fileID = Arrays.copyOfRange(rawData, 1,2);
-            byte[] packetNumber = Arrays.copyOfRange(rawData, 3,5);
-            byte[] data = Arrays.copyOfRange(rawData, 5, rawData.length);
-
+            //byte[] fileID = Array.get(rawData, 1);
+            byte[] packetNumber = Arrays.copyOfRange(rawData, 2,4);
+            byte[] data = Arrays.copyOfRange(rawData, 4, packet.getLength());
             ByteBuffer wrapped = ByteBuffer.wrap(packetNumber);
 
-            if (Arrays.equals(fileID1, empty)) {
-                fileID1 = fileID;
+            if (file1.noFileID() && !(Arrays.equals(fileID, file1.fileID))) {
+                file1.fileID = fileID;
+            } else if (file2.noFileID() && !(Arrays.equals(fileID, file2.fileID))) {
+                file2.fileID = fileID;
+            } else if (file3.noFileID()) {
+                file3.fileID = fileID;
             }
-            if (!(Arrays.equals(fileID2, empty)) && !(Arrays.equals(fileID, fileID1))) {
-                fileID2 = fileID;
-            }
-            if (!(Arrays.equals(fileID3, empty)) && !(Arrays.equals(fileID, fileID1)) && !(Arrays.equals(fileID, fileID2))) {
-                fileID3 = fileID;
-            }
-
-
+            
 
             //1st bit is x, second is y 000000yx
             if ( (status[0] % 2) == 0 ) {
                 //if even, then its a header
-                data = Arrays.copyOfRange(rawData, 3,rawData.length);
-                if (Arrays.equals(fileID, fileID1)) {
-                    fileName1 = new String(data);
-                    System.out.println(fileName1);
-                }
-                if (Arrays.equals(fileID, fileID2)) {
-                    fileName2 = Arrays.toString(data);
-                    System.out.println(fileName2);
-                }
-                if (Arrays.equals(fileID, fileID3)) {
-                    fileName3 = Arrays.toString(data);
-                    System.out.println(fileName3);}
+                data = Arrays.copyOfRange(rawData, 2, packet.getLength());
+                if (Arrays.equals(fileID, file1.fileID)) {
+                    file1.fileName = new String(data);
+                    System.out.println(file1.fileName + "1packet number: " + wrapped.getShort());
+                } else if (Arrays.equals(fileID, file2.fileID)) {
+                    file2.fileName= Arrays.toString(data);
+                    System.out.println(file2.fileName + "2packet number: " + wrapped.getShort());
+                } else if (Arrays.equals(fileID, file3.fileID)) {
+                    file3.fileName = Arrays.toString(data);
+                    System.out.println(file3.fileName + "3packet number: " + wrapped.getShort());}
 
             } else if ((status[0] % 4) == 3) {
                 //if 3 mod 4, then this is the last data packet for this file
                 int num = wrapped.getShort();
 
-                if (Arrays.equals(fileID, fileID1)) {
-                    numPackets1 = num;
-                    System.out.println(numPackets1);
-                }
-                if (Arrays.equals(fileID, fileID2)) {
-                    numPackets2 = num;
-                    System.out.println(numPackets2);
-                }
-                if (Arrays.equals(fileID, fileID3)) {
-                    numPackets3 = num;
-                    System.out.println(numPackets3);
+                if (Arrays.equals(fileID, file1.fileID)) {
+                    file1.numPackets = num;
+                    System.out.println("1tail packet number: " + file1.numPackets);
+                } else if (Arrays.equals(fileID, file2.fileID)) {
+                    file2.numPackets = num;
+                    System.out.println("2tail packet number: " + file2.numPackets);
+                } else if (Arrays.equals(fileID, file3.fileID)) {
+                    file3.numPackets = num;
+                    System.out.println("3tail packet number: " + file3.numPackets);
                 }
             } else {
                 //if we get here, that means this is a regular data packet.
-                if (Arrays.equals(fileID, fileID1)) {
-                    fileArray1.add(data);
-                } else if (Arrays.equals(fileID, fileID2)) {
-                    fileArray2.add(data);
-                } else if (Arrays.equals(fileID, fileID3)) {
-                    fileArray3.add(data);
+                if (Arrays.equals(fileID, file1.fileID)) {
+                    file1.fileArray.add(data);
+                } else if (Arrays.equals(fileID, file2.fileID)) {
+                    file2.fileArray.add(data);
+                } else if (Arrays.equals(fileID, file3.fileID)) {
+                    file3.fileArray.add(data);
                     //OStream3.write(data);
                 }
             }
 
             System.out.println("Packet: " + i);
             i++;
-            if(file1Done && file2Done && file3Done){
-                break;
+
+
+            if(file1.fileArray.size() >= file1.numPackets) {
+                file1.fileDone = true;
+                System.out.println("file1 is done.");
+            }
+            if(file2.fileArray.size() >= file2.numPackets) {
+                file2.fileDone = true;
+                System.out.println("file2 is done.");
+            }
+            if(file3.fileArray.size() >= file3.numPackets) {
+                file3.fileDone = true;
+                System.out.println("file3 is done.");
             }
         }
         System.out.println("Done writing.");
@@ -131,7 +122,7 @@ public class fileClient {
         sortBytes();
 
 
-        for (i = 0; i < fileArray1.size() ; i++) {
+        for (i = 0; i < file1.fileArray.size() ; i++) {
 
         }
     }
@@ -144,6 +135,61 @@ public class fileClient {
         return A1[1] > A2[1];
     }
 
+    public static class file{
+        private boolean fileDone = false;
+        private byte[] fileID = new byte[2];
+        private String fileName = "";
+        private int numPackets = Integer.MAX_VALUE;
+        private ArrayList<byte[]> fileArray = new ArrayList<>();
+
+        //fileDone methods
+        public void setFileDone(boolean fileDone) {
+            this.fileDone = fileDone;
+        }
+        public boolean getFileDone() {
+            return fileDone;
+        }
+
+        //fileID methods
+        public void setFileID(byte[] fileID) {
+            this.fileID = fileID;
+        }
+        public byte[] getFileID() {
+            return fileID;
+        }
+
+        //FileName methods
+        public void setFileName(String fileName) {
+            this.fileName = fileName;
+        }
+        public String getFileName() {
+            return fileName;
+        }
+
+        //numPacket Methods
+        public void setNumPackets(int numPackets) {
+            this.numPackets = numPackets;
+        }
+        public int getNumPackets() {
+            return numPackets;
+        }
+
+        public void setFileArray(ArrayList<byte[]> fileArray) {
+            this.fileArray = fileArray;
+        }
+        public ArrayList<byte[]> getFileArray() {
+            return fileArray;
+        }
+        
+        public boolean noFileName() {
+            return (this.fileName.equals(""));
+        }
+
+        public boolean noFileID() {
+            return (Arrays.equals(this.fileID, new byte[2]));
+        }
+        
+    }
 
 //    public class byteSort {
 //        private byte[] data;
@@ -165,13 +211,13 @@ public class fileClient {
 //    }
 
 //old function used for terminating while true loop
-public static boolean emptyByte(byte[] barray) {
-    for (byte b : barray) {
-        if (b == 1) {
-            return false;
-        }
-    }
-        return true;
-}
+//public static boolean emptyByte(byte[] barray) {
+//    for (byte b : barray) {
+//        if (b == 1) {
+//            return false;
+//        }
+//    }
+//        return true;
+//}
 
 }
