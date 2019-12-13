@@ -38,23 +38,24 @@ public class fileClient {
         socket.receive(packet);
         String received = new String(packet.getData(), 4, packet.getLength()-4);
         System.out.println("Pointless String should print: " + received);
-        int i = 1;
+        int i = 0;
 
-        FileOutputStream fos = new FileOutputStream("file2.txt");
+        //FileOutputStream fos = new FileOutputStream("file2.txt");
 
         file file1 = new file();
         file file2 = new file();
         file file3 = new file();
         
-        while (!(file1.fileDone && file2.fileDone && file3.fileDone)){
+        while ( !(file1.fileDone && file2.fileDone && file3.fileDone) ){
             socket.receive(packet);
-            byte[] rawData = packet.getData();
+            i++;
+            byte[] rawData = packet.getData().clone();
             int status = ((byte)Array.get(rawData, 0));
             //byte[] fileID = Arrays.copyOfRange(rawData, 1,2);
             int fileID = rawData[1];
             int the = packet.getData()[1];
-            byte[] packetNumber = Arrays.copyOfRange(rawData, 2,4);
-            byte[] data = Arrays.copyOfRange(rawData, 4, 1028);
+            byte[] packetNumber = Arrays.copyOfRange(rawData, 2,4).clone();
+            byte[] data = Arrays.copyOfRange(rawData, 4, 1028).clone();
             ByteBuffer wrapped = ByteBuffer.wrap(packetNumber);
 
             //find the IDs of our three files so we can reassemble them later
@@ -71,9 +72,26 @@ public class fileClient {
             
 
             //1st bit is x, second is y 000000yx
-            if ( (status % 2) == 0 ) {
+        if ((status % 4) == 3) {
+            //if 3 mod 4, then this is the last data packet for this file
+            int num = wrapped.getShort();
+
+            if (fileID == file1.fileID) {
+                file1.numPackets = num;
+                file1.fileArray.add(rawData);
+                System.out.println("1tail packet number: " + file1.numPackets);
+            } else if (fileID == file2.fileID) {
+                file2.numPackets = num;
+                file2.fileArray.add(rawData);
+                System.out.println("2tail packet number: " + file2.numPackets);
+            } else if (fileID == file3.fileID) {
+                file3.numPackets = num;
+                file3.fileArray.add(rawData);
+                System.out.println("3tail packet number: " + file3.numPackets);
+            }
+        } else if ( (status % 2) == 0 ) {
                 //if even, then its a header
-                data = Arrays.copyOfRange(rawData, 2, packet.getLength());
+                data = (Arrays.copyOfRange(rawData, 2, packet.getLength()).clone());
                 if (fileID == file1.fileID) {
                     file1.fileName = new String(data);
                     System.out.println("File1 Name: " + file1.fileName);
@@ -87,51 +105,35 @@ public class fileClient {
                     System.out.println("File3 Name: " + file3.fileName);
                     //System.out.println("packet number: " + wrapped.getShort());
                 }
+        } else {
+            //if we get here, that means this is a regular data packet.
+            if (fileID == file1.fileID) {
+                file1.fileArray.add(rawData);
+            } else if (fileID == file2.fileID) {
+                file2.fileArray.add(rawData);
+                //fos.write(data);
+            } else if (fileID == file3.fileID) {
+                file3.fileArray.add(rawData);
+            }
+        }
 
-            } else if ((status % 4) == 3) {
-                //if 3 mod 4, then this is the last data packet for this file
-                int num = wrapped.getShort();
-
-                if (fileID == file1.fileID) {
-                    file1.numPackets = num;
-                    file1.fileArray.add(rawData);
-                    System.out.println("1tail packet number: " + file1.numPackets);
-                } else if (fileID == file2.fileID) {
-                    file2.numPackets = num;
-                    file2.fileArray.add(rawData);
-                    System.out.println("2tail packet number: " + file2.numPackets);
-                } else if (fileID == file3.fileID) {
-                    file3.numPackets = num;
-                    file3.fileArray.add(rawData);
-                    System.out.println("3tail packet number: " + file3.numPackets);
-                }
-            } else if ((status % 2) == 1) {
-                //if we get here, that means this is a regular data packet.
-                if (fileID == file1.fileID) {
-                    file1.fileArray.add(rawData);
-                } else if (fileID == file2.fileID) {
-                    file2.fileArray.add(rawData);
-                    fos.write(rawData);
-                } else if (fileID == file3.fileID) {
-                    file3.fileArray.add(rawData);
-                }
-            } else {
-                System.out.println("THIS SHOULD NEVER RUN");
+//            totalpackets = (file1.fileArray.size() + return1ifNotEmpty(file1) +
+//                    + file2.fileArray.size() + return1ifNotEmpty(file2)
+//                    + file3.fileArray.size() + return1ifNotEmpty(file3));
+//            System.out.println("Total packets recorded:" + totalpackets);
+            if(i % 20 == 0) {
+                System.out.println("I: " + i);
             }
 
-            System.out.println(i);
-            i++;
-
-
-            if(file1.fileArray.size() >= file1.numPackets) {
+            if(!(file1.fileDone) && (file1.fileArray.size() >= file1.numPackets)) {
                 file1.fileDone = true;
                 System.out.println("file1 is done.");
             }
-            if(file2.fileArray.size() >= file2.numPackets) {
+            if(!(file2 .fileDone) && (file2.fileArray.size() >= file2.numPackets)) {
                 file2.fileDone = true;
                 System.out.println("file2 is done.");
             }
-            if(file3.fileArray.size() >= file3.numPackets) {
+            if(!(file3.fileDone) && (file3.fileArray.size() >= file3.numPackets)) {
                 file3.fileDone = true;
                 System.out.println("file3 is done.");
             }
@@ -235,8 +237,9 @@ public class fileClient {
 
             try {
 
-            for (int j = 0; j <= this.fileArray.size(); j++){
-                FOStream.write(Arrays.copyOfRange(this.fileArray.get(j), 4, this.fileArray.get(j).length));
+            for (int j = 0; j < this.fileArray.size(); j++){
+                System.out.println("File array[" + j +"] length" + this.fileArray.get(j).length  );
+                FOStream.write((Arrays.copyOfRange(this.fileArray.get(j), 4, (this.fileArray.get(j).length-1) ) ).clone());
             }
             } catch (FileNotFoundException e) {
                 System.out.println("File not found" + e);
@@ -264,6 +267,12 @@ public class fileClient {
             ByteBuffer wrapped2 = ByteBuffer.wrap(Arrays.copyOfRange(b2, 2,4));
             return Integer.compare(wrapped1.getShort(), wrapped2.getShort());
         }
+    }
+
+    public static int return1ifNotEmpty(file ifile) {
+      if (ifile.fileName.equals("")) {
+          return 0;
+      } else return 1;
     }
 
 //Below are old methods I longer need, but might want to refer to for help later perhaps.
